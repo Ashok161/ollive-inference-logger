@@ -30,6 +30,21 @@ Gemini catalog uses `gemini-2.5-flash` / `gemini-2.5-flash-lite` (older 1.5/2.0 
 - Docker Desktop (or Docker Engine + Compose)
 - A free [Groq](https://console.groq.com) API key (`GROQ_API_KEY`)
 
+## Free hosted demo (Netlify + Render + Neon + Upstash)
+
+Long-running free tier path (no Railway):
+
+1. **Neon** — create a free Postgres project; copy the connection string.
+2. **Upstash** — create a free Redis database; copy the Redis URL (`rediss://…`).
+3. **Render** — New Blueprint from this repo (`render.yaml`), set:
+   - `GROQ_API_KEY`
+   - `DATABASE_URL` and `DATABASE_URL_SYNC` (same Neon URL)
+   - `REDIS_URL` (Upstash)
+4. **Netlify** — import this repo, base `apps/web`, set build env:
+   - `VITE_API_URL=https://<your-render-service>.onrender.com`
+
+Cold starts on Render free tier can take ~30–60s after idle.
+
 ## Quick start (Docker Compose)
 
 ```bash

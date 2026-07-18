@@ -68,7 +68,10 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        VITE_API_URL: http://localhost:8000
+        VITE_API_URL: /api
+    environment:
+      PORT: "80"
+      API_UPSTREAM: http://api:8000
     ports:
       - "3000:80"
     depends_on:

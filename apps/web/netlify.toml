@@ -1,0 +1,13 @@
+[build]
+  base = "apps/web"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Override in Netlify UI: https://<your-render-api>.onrender.com
+  VITE_API_URL = ""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

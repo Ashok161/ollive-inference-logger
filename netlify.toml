@@ -1,0 +1,14 @@
+[build]
+  base = "apps/web"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Set VITE_API_URL in Netlify UI to your Render API URL, e.g.
+  # https://ollive-api.onrender.com
+  VITE_API_URL = ""
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

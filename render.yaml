@@ -1,0 +1,35 @@
+# Free-tier friendly Blueprint: one web service (API + embedded worker).
+# Attach Neon DATABASE_URL + Upstash REDIS_URL as env vars in the Render dashboard.
+services:
+  - type: web
+    name: ollive-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: EMBED_WORKER
+        value: "true"
+      - key: DEFAULT_PROVIDER
+        value: groq
+      - key: DEFAULT_MODEL
+        value: openai/gpt-oss-20b
+      - key: PII_REDACTION_ENABLED
+        value: "true"
+      - key: CONTEXT_WINDOW_MESSAGES
+        value: "12"
+      - key: INGESTION_API_KEY
+        generateValue: true
+      - key: INGESTION_URL
+        value: http://127.0.0.1:8000/v1/ingest
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_URL_SYNC
+        sync: false
+      - key: REDIS_URL
+        sync: false
