@@ -40,3 +40,8 @@ redis_data/
 htmlcov/
 .coverage
 coverage/
+.render_api_key
+
+.render_svc.json
+
+.render_build_log.txt
