@@ -28,7 +28,8 @@ html,
 body,
 #root {
   margin: 0;
-  min-height: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -72,19 +73,22 @@ textarea {
 .app-shell {
   position: relative;
   z-index: 1;
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
-/* â€”â€”â€” Header â€”â€”â€” */
+/* ——— Header ——— */
 .topbar {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: 1.25rem;
-  padding: 1.4rem clamp(1.25rem, 3vw, 2.5rem) 1.1rem;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem clamp(1rem, 2.5vw, 2rem);
   border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
   animation: reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -114,17 +118,18 @@ textarea {
   margin: 0;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2.4rem, 5.5vw, 3.6rem);
+  font-size: clamp(1.65rem, 3vw, 2.1rem);
   letter-spacing: -0.055em;
-  line-height: 0.9;
+  line-height: 0.95;
 }
 
 .brand-sub {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 0.95rem;
-  max-width: 28rem;
+  font-size: 0.82rem;
+  max-width: min(42rem, 100%);
   line-height: 1.35;
+  white-space: normal;
 }
 
 .nav {
@@ -160,11 +165,13 @@ textarea {
   background: rgba(255, 255, 255, 0.55);
 }
 
-/* â€”â€”â€” Chat layout â€”â€”â€” */
+/* ——— Chat layout ——— */
 .layout {
   display: grid;
-  grid-template-columns: minmax(220px, 260px) 1fr;
-  min-height: calc(100vh - 120px);
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -174,6 +181,8 @@ textarea {
   flex-direction: column;
   gap: 0.9rem;
   background: rgba(255, 255, 255, 0.28);
+  min-height: 0;
+  overflow: hidden;
   animation: slideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -230,10 +239,45 @@ textarea {
   background: transparent;
 }
 
-.btn:disabled {
-  opacity: 0.4;
+.btn:disabled,
+.conv-item:disabled {
+  opacity: 1;
+  color: var(--muted);
+  background: rgba(16, 20, 28, 0.06);
+  border-color: var(--line);
   cursor: not-allowed;
   transform: none;
+}
+
+.btn:focus-visible,
+.nav button:focus-visible,
+.conv-item:focus-visible,
+select:focus-visible,
+.composer textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 .conv-list {
@@ -284,8 +328,11 @@ textarea {
 
 .main {
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.05s both;
 }
 
@@ -295,9 +342,10 @@ textarea {
   gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
-  padding: 0.9rem clamp(1rem, 2.5vw, 1.75rem);
+  padding: 0.7rem clamp(1rem, 2.5vw, 1.75rem);
   border-bottom: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
 }
 
 .controls {
@@ -353,11 +401,13 @@ select:focus {
 }
 
 .messages {
-  overflow: auto;
-  padding: 1.5rem clamp(1rem, 3vw, 2rem) 1.25rem;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 1.1rem clamp(1rem, 3vw, 2rem);
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  overscroll-behavior: contain;
 }
 
 .messages-inner {
@@ -366,7 +416,14 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1 0 auto;
+  min-height: min-content;
+}
+
+.messages-inner.is-empty {
   flex: 1;
+  min-height: 100%;
+  justify-content: center;
 }
 
 .msg {
@@ -436,20 +493,19 @@ select:focus {
 }
 
 .empty-stage {
-  margin: auto;
   width: min(100%, 34rem);
   text-align: left;
-  padding: 2rem 0.5rem 3rem;
+  padding: 0.5rem 0.25rem 1rem;
   animation: rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .empty-stage .wordmark {
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(3rem, 8vw, 4.5rem);
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
   letter-spacing: -0.06em;
   line-height: 0.9;
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
   background: linear-gradient(120deg, var(--ink) 40%, var(--accent) 140%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -474,9 +530,11 @@ select:focus {
 }
 
 .composer-wrap {
-  padding: 0.85rem clamp(1rem, 2.5vw, 1.75rem) 1.25rem;
+  padding: 0.75rem clamp(1rem, 2.5vw, 1.75rem) 0.95rem;
   border-top: 1px solid var(--line);
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.35));
+  background: rgba(244, 246, 249, 0.92);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
 }
 
 .composer {
@@ -516,8 +574,11 @@ select:focus {
   padding: 0.75rem 0.35rem;
 }
 
-/* â€”â€”â€” Dashboard â€”â€”â€” */
+/* ——— Dashboard ——— */
 .dashboard {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
   padding: 1.25rem clamp(1rem, 3vw, 2.25rem) 2rem;
   display: flex;
   flex-direction: column;
@@ -566,6 +627,15 @@ select:focus {
   background: var(--signal);
   border-radius: 1px;
   animation: pulseOrb 1.6s ease-in-out infinite;
+}
+
+.live-dot.is-error {
+  color: var(--danger);
+}
+
+.live-dot.is-error i {
+  background: var(--danger);
+  animation: none;
 }
 
 .kpi-row {
@@ -686,18 +756,51 @@ select:focus {
     align-items: start;
   }
 
+  .brand-sub {
+    white-space: normal;
+  }
+
   .nav {
     width: fit-content;
   }
 
   .layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--line);
-    max-height: 220px;
+    max-height: none;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .sidebar-actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .sidebar-label {
+    display: none;
+  }
+
+  .conv-list {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-height: none;
+    gap: 0.35rem;
+  }
+
+  .conv-item {
+    min-width: 9.5rem;
+    flex-shrink: 0;
   }
 
   .kpi-row,
@@ -706,7 +809,18 @@ select:focus {
   }
 
   .event-row {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 72px 64px 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .event-row span:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .event-row span:nth-child(4) {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
   }
 }
 

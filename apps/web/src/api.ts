@@ -107,8 +107,9 @@ export async function streamChat(
   });
 
   if (!res.ok || !res.body) {
-    opts.onError(await res.text());
-    return;
+    const text = await res.text();
+    opts.onError(text || res.statusText);
+    throw new Error(text || res.statusText);
   }
 
   const reader = res.body.getReader();
@@ -124,10 +125,22 @@ export async function streamChat(
     for (const part of parts) {
       const line = part.trim();
       if (!line.startsWith("data:")) continue;
-      const payload = JSON.parse(line.slice(5).trim());
-      if (payload.type === "token") opts.onToken(payload.content);
-      if (payload.type === "done") opts.onDone();
-      if (payload.type === "error") opts.onError(payload.message);
+      let payload: { type: string; content?: string; message?: string };
+      try {
+        payload = JSON.parse(line.slice(5).trim());
+      } catch {
+        continue;
+      }
+      if (payload.type === "token" && payload.content) {
+        opts.onToken(payload.content);
+      } else if (payload.type === "done" || payload.type === "cancelled") {
+        opts.onDone();
+      } else if (payload.type === "error") {
+        const msg = payload.message || "Stream error";
+        opts.onError(msg);
+        await reader.cancel();
+        throw new Error(msg);
+      }
     }
   }
 }

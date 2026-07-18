@@ -21,18 +21,20 @@ export default function App() {
           </div>
           <p className="brand-sub">
             Inference observatory for multi-provider LLM traffic — chat, stream,
-            and watch every call land in near real time.
+            and watch every call land in near real time
           </p>
         </div>
         <nav className="nav" aria-label="Primary">
           <button
             className={tab === "chat" ? "active" : ""}
+            aria-current={tab === "chat" ? "page" : undefined}
             onClick={() => setTab("chat")}
           >
             Chat
           </button>
           <button
             className={tab === "dashboard" ? "active" : ""}
+            aria-current={tab === "dashboard" ? "page" : undefined}
             onClick={() => setTab("dashboard")}
           >
             Observatory

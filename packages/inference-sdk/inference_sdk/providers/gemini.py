@@ -5,6 +5,7 @@ from typing import Any, AsyncIterator, Iterator
 
 import httpx
 
+from ..errors import raise_for_provider_response
 from ..models import ChatMessage, TokenUsage
 from .base import ProviderAdapter
 
@@ -73,7 +74,7 @@ class GeminiAdapter(ProviderAdapter):
                 self._url(model, stream=False),
                 json=self._payload(messages, **kwargs),
             )
-            resp.raise_for_status()
+            raise_for_provider_response(resp, provider=self.name, model=model)
             return self._parse(resp.json())
 
     def chat_stream(
@@ -86,7 +87,9 @@ class GeminiAdapter(ProviderAdapter):
                 self._url(model, stream=True),
                 json=self._payload(messages, **kwargs),
             ) as resp:
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    resp.read()
+                    raise_for_provider_response(resp, provider=self.name, model=model)
                 for line in resp.iter_lines():
                     if not line or not line.startswith("data:"):
                         continue
@@ -106,7 +109,7 @@ class GeminiAdapter(ProviderAdapter):
                 self._url(model, stream=False),
                 json=self._payload(messages, **kwargs),
             )
-            resp.raise_for_status()
+            raise_for_provider_response(resp, provider=self.name, model=model)
             return self._parse(resp.json())
 
     async def achat_stream(
@@ -119,7 +122,9 @@ class GeminiAdapter(ProviderAdapter):
                 self._url(model, stream=True),
                 json=self._payload(messages, **kwargs),
             ) as resp:
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise_for_provider_response(resp, provider=self.name, model=model)
                 async for line in resp.aiter_lines():
                     if not line or not line.startswith("data:"):
                         continue

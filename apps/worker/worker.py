@@ -20,6 +20,7 @@ import redis
 from pydantic import ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import create_engine, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -37,7 +38,7 @@ class Settings(BaseSettings):
     ingestion_queue: str = "inference_logs"
     pii_redaction_enabled: bool = True
     worker_group: str = "workers"
-    worker_name: str = "worker-1"
+    worker_name: str = os.getenv("HOSTNAME", "worker-1")
 
 
 settings = Settings()
@@ -158,12 +159,9 @@ def process_payload(session: Session, payload: dict) -> None:
     session.add(event)
     try:
         session.commit()
-    except Exception as exc:  # noqa: BLE001
+    except IntegrityError:
         session.rollback()
-        # Idempotent under dual-write / at-least-once delivery
-        if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
-            return
-        raise
+        return
 
 
 def ensure_group(r: redis.Redis) -> None:

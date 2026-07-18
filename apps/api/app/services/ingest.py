@@ -38,6 +38,13 @@ async def persist_inference_event(
         return existing
 
     usage = data.usage
+    input_preview = redact_pii(data.input_preview, enabled=redact)
+    output_preview = redact_pii(data.output_preview, enabled=redact)
+    error_message = redact_pii(data.error_message or "", enabled=redact) or None
+    raw = data.model_dump(mode="json")
+    raw["input_preview"] = input_preview
+    raw["output_preview"] = output_preview
+    raw["error_message"] = error_message
     event = InferenceEvent(
         event_id=data.event_id,
         request_id=data.request_id,
@@ -47,19 +54,19 @@ async def persist_inference_event(
         model=data.model,
         status=data.status,
         error_type=data.error_type,
-        error_message=data.error_message,
+        error_message=error_message,
         latency_ms=data.latency_ms,
         ttft_ms=data.ttft_ms,
         streaming=data.streaming,
         prompt_tokens=usage.prompt_tokens,
         completion_tokens=usage.completion_tokens,
         total_tokens=usage.total_tokens or (usage.prompt_tokens + usage.completion_tokens),
-        input_preview=redact_pii(data.input_preview, enabled=redact),
-        output_preview=redact_pii(data.output_preview, enabled=redact),
+        input_preview=input_preview,
+        output_preview=output_preview,
         message_count=data.message_count,
         started_at=data.started_at,
         finished_at=data.finished_at,
-        raw_payload=data.model_dump(mode="json"),
+        raw_payload=raw,
     )
     session.add(event)
     try:

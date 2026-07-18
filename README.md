@@ -24,6 +24,11 @@ Default provider is **Groq** (OpenAI-compatible, free-tier friendly).
 
 > **Note:** `mixtral-8x7b-32768` was removed from the catalog — Groq decommissioned it (HTTP 400). Current Groq models: `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `openai/gpt-oss-20b`, `openai/gpt-oss-120b`.
 
+## Prerequisites
+
+- Docker Desktop (or Docker Engine + Compose)
+- A free [Groq](https://console.groq.com) API key (`GROQ_API_KEY`)
+
 ## Quick start (Docker Compose)
 
 ```bash

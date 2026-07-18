@@ -54,7 +54,7 @@ services:
     environment:
       DATABASE_URL_SYNC: postgresql://ollive:ollive@postgres:5432/ollive
       REDIS_URL: redis://redis:6379/0
-      WORKER_NAME: worker-1
+      WORKER_NAME: ${HOSTNAME:-worker-1}
     depends_on:
       postgres:
         condition: service_healthy

@@ -32,7 +32,7 @@ class InstrumentedLLM:
         enabled: bool = True,
     ) -> None:
         self.provider = Provider(provider) if isinstance(provider, str) else provider
-        self.model = model or os.getenv("DEFAULT_MODEL", "llama-3.3-70b-versatile")
+        self.model = model or os.getenv("DEFAULT_MODEL", "llama-3.1-8b-instant")
         self.adapter = get_adapter(self.provider, api_key=api_key, base_url=base_url)
         self.redact_pii = redact_pii
         self.shipper = LogShipper(
@@ -54,7 +54,7 @@ class InstrumentedLLM:
         last_user = next((m.content for m in reversed(messages) if m.role == "user"), "")
         return InferenceLog(
             conversation_id=conversation_id,
-            session_id=session_id or str(uuid4()),
+            session_id=session_id or conversation_id or str(uuid4()),
             provider=self.provider.value,
             model=self.model,
             streaming=streaming,
@@ -124,10 +124,12 @@ class InstrumentedLLM:
         first_token_at: float | None = None
         chunks: list[str] = []
         usage = TokenUsage()
+        cancelled = False
+        finished_normally = False
         try:
             for piece, maybe_usage in self.adapter.chat_stream(self.model, msgs, **kwargs):
                 if cancel_check and cancel_check():
-                    log.status = "cancelled"
+                    cancelled = True
                     break
                 if maybe_usage is not None:
                     usage = maybe_usage
@@ -138,8 +140,10 @@ class InstrumentedLLM:
                         log.ttft_ms = (first_token_at - started) * 1000
                     chunks.append(piece)
                     yield piece
-            else:
-                log.status = "success"
+            finished_normally = True
+            log.status = "cancelled" if cancelled else "success"
+            if cancelled:
+                log.error_message = "cancelled_by_user"
             content = "".join(chunks)
             log.usage = usage
             log.output_preview = preview(content, redact=self.redact_pii)
@@ -149,6 +153,16 @@ class InstrumentedLLM:
             log.error_message = str(exc)[:500]
             raise
         finally:
+            if not finished_normally and log.status != "error":
+                log.status = "cancelled"
+                log.error_message = log.error_message or (
+                    "cancelled_by_user"
+                    if cancel_check and cancel_check()
+                    else "stream_interrupted"
+                )
+                content = "".join(chunks)
+                log.usage = usage
+                log.output_preview = preview(content, redact=self.redact_pii)
             log.latency_ms = (time.perf_counter() - started) * 1000
             log.mark_finished()
             self.shipper.ship(log)
@@ -214,13 +228,13 @@ class InstrumentedLLM:
         chunks: list[str] = []
         usage = TokenUsage()
         cancelled = False
+        finished_normally = False
         try:
             async for piece, maybe_usage in self.adapter.achat_stream(
                 self.model, msgs, **kwargs
             ):
                 if cancel_check and cancel_check():
                     cancelled = True
-                    log.status = "cancelled"
                     break
                 if maybe_usage is not None:
                     usage = maybe_usage
@@ -231,8 +245,10 @@ class InstrumentedLLM:
                         log.ttft_ms = (first_token_at - started) * 1000
                     chunks.append(piece)
                     yield piece
-            if not cancelled:
-                log.status = "success"
+            finished_normally = True
+            log.status = "cancelled" if cancelled else "success"
+            if cancelled:
+                log.error_message = "cancelled_by_user"
             content = "".join(chunks)
             log.usage = usage
             log.output_preview = preview(content, redact=self.redact_pii)
@@ -242,6 +258,17 @@ class InstrumentedLLM:
             log.error_message = str(exc)[:500]
             raise
         finally:
+            # GeneratorExit / consumer return lands here with finished_normally=False
+            if not finished_normally and log.status != "error":
+                log.status = "cancelled"
+                log.error_message = log.error_message or (
+                    "cancelled_by_user"
+                    if cancel_check and cancel_check()
+                    else "stream_interrupted"
+                )
+                content = "".join(chunks)
+                log.usage = usage
+                log.output_preview = preview(content, redact=self.redact_pii)
             log.latency_ms = (time.perf_counter() - started) * 1000
             log.mark_finished()
             await self.shipper.aship(log)

@@ -41,11 +41,18 @@ class LogShipper:
 
         def _send() -> None:
             try:
-                self._client.post(
+                resp = self._client.post(
                     self.ingestion_url,
                     json=log.model_dump(mode="json"),
                     headers=self._headers(),
                 )
+                if resp.status_code >= 400:
+                    logger.warning(
+                        "Ingest rejected log %s: HTTP %s %s",
+                        log.event_id,
+                        resp.status_code,
+                        resp.text[:200],
+                    )
             except Exception as exc:  # noqa: BLE001
                 logger.warning("Failed to ship inference log: %s", exc)
 
@@ -57,11 +64,18 @@ class LogShipper:
         if self._async_client is None:
             self._async_client = httpx.AsyncClient(timeout=self.timeout)
         try:
-            await self._async_client.post(
+            resp = await self._async_client.post(
                 self.ingestion_url,
                 json=log.model_dump(mode="json"),
                 headers=self._headers(),
             )
+            if resp.status_code >= 400:
+                logger.warning(
+                    "Ingest rejected log %s: HTTP %s %s",
+                    log.event_id,
+                    resp.status_code,
+                    resp.text[:200],
+                )
         except Exception as exc:  # noqa: BLE001
             logger.warning("Failed to ship inference log: %s", exc)
 

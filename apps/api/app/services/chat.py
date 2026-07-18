@@ -228,6 +228,7 @@ async def stream_chat(
     def cancel_check() -> bool:
         return cancel_state["requested"]
 
+    was_cancelled = False
     try:
         async for piece in llm.achat_stream(
             messages,
@@ -241,12 +242,18 @@ async def stream_chat(
             yield piece
 
             if await refresh_cancel():
+                was_cancelled = True
                 assistant.status = "cancelled"
                 conv.status = "cancelled"
                 await session.commit()
-                return
+                break
 
-        if await refresh_cancel():
+        if was_cancelled or await refresh_cancel():
+            was_cancelled = True
+            assistant.content = "".join(chunks)
+            assistant.content_redacted = redact_pii(
+                assistant.content, settings.pii_redaction_enabled
+            )
             assistant.status = "cancelled"
             conv.status = "cancelled"
         else:
@@ -260,7 +267,6 @@ async def stream_chat(
             conv.status = "active"
         await session.commit()
     except Exception as exc:  # noqa: BLE001
-        # Prefer a clean provider message over raw httpx dumps.
         message = str(exc).strip() or "Model request failed"
         if message.startswith("Error:"):
             message = message[6:].strip()
@@ -268,3 +274,10 @@ async def stream_chat(
         assistant.status = "error"
         await session.commit()
         raise ValueError(message) from exc
+    finally:
+        await session.refresh(assistant)
+        if assistant.status == "streaming":
+            assistant.status = "cancelled"
+            conv.status = "cancelled"
+            assistant.content = "".join(chunks)
+            await session.commit()

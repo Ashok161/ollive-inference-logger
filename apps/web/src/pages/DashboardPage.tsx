@@ -88,9 +88,9 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="controls">
-          <span className="live-dot">
+          <span className={`live-dot ${error ? "is-error" : ""}`}>
             <i aria-hidden="true" />
-            Live · 5s
+            {error ? "Paused · error" : "Live · 5s"}
           </span>
           <label className="field">
             <span>Window</span>
@@ -157,71 +157,96 @@ export default function DashboardPage() {
 
       <div className="charts">
         <div className="panel">
-          <h3>Latency</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={latencyData}>
-              <defs>
-                <linearGradient id="lat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1f7a5c" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#1f7a5c" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Area
-                type="monotone"
-                dataKey="avg_latency_ms"
-                stroke="#1f7a5c"
-                fill="url(#lat)"
-                name="avg ms"
-                strokeWidth={2}
-              />
-              <Area
-                type="monotone"
-                dataKey="p95_latency_ms"
-                stroke="#e24a1b"
-                fillOpacity={0}
-                name="p95 ms"
-                strokeWidth={1.5}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <h3>Latency (ms)</h3>
+          {!latencyData.length ? (
+            <div className="sidebar-empty">No latency samples in this window.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={latencyData}>
+                <defs>
+                  <linearGradient id="lat" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#1f7a5c" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="#1f7a5c" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7585" }}
+                  unit="ms"
+                  width={48}
+                />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Area
+                  type="monotone"
+                  dataKey="avg_latency_ms"
+                  stroke="#1f7a5c"
+                  fill="url(#lat)"
+                  name="avg ms"
+                  strokeWidth={2}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="p95_latency_ms"
+                  stroke="#e24a1b"
+                  fillOpacity={0}
+                  name="p95 ms"
+                  strokeWidth={1.5}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="panel">
-          <h3>Throughput</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={throughputData}>
-              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="requests" fill="#10141c" radius={[2, 2, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <h3>Throughput (req)</h3>
+          {!throughputData.length ? (
+            <div className="sidebar-empty">No throughput samples in this window.</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={throughputData}>
+                <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7585" }}
+                  allowDecimals={false}
+                />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Bar dataKey="requests" fill="#10141c" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       <div className="charts">
         <div className="panel">
           <h3>Errors over time</h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={errorData}>
-              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
-              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} allowDecimals={false} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Area
-                type="monotone"
-                dataKey="errors"
-                stroke="#c42318"
-                fill="rgba(196,35,24,0.12)"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {!errorData.length ? (
+            <div className="sidebar-empty">
+              No errors in this window
+              {metrics ? ` · cancelled ${metrics.cancelled_count}` : ""}.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={errorData}>
+                <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "#6b7585" }}
+                  allowDecimals={false}
+                />
+                <Tooltip contentStyle={tooltipStyle} />
+                <Area
+                  type="monotone"
+                  dataKey="errors"
+                  stroke="#c42318"
+                  fill="rgba(196,35,24,0.12)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="panel">

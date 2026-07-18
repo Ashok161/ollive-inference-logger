@@ -120,6 +120,7 @@ async def chat(
         }
 
     async def event_gen():
+        cancelled = False
         try:
             async for piece in chat_service.stream_chat(
                 session,
@@ -130,7 +131,13 @@ async def chat(
             ):
                 if piece:
                     yield f"data: {json.dumps({'type': 'token', 'content': piece})}\n\n"
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            conv = await chat_service.get_conversation(session, conversation_id)
+            if conv and conv.status == "cancelled":
+                cancelled = True
+            if cancelled:
+                yield f"data: {json.dumps({'type': 'cancelled'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except ValueError as exc:
             yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
         except Exception as exc:  # noqa: BLE001
