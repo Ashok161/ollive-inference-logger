@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ollive-config
+  namespace: ollive
+data:
+  DEFAULT_PROVIDER: "groq"
+  DEFAULT_MODEL: "llama-3.3-70b-versatile"
+  INGESTION_QUEUE: "inference_logs"
+  INGESTION_URL: "http://api:8000/v1/ingest"
+  PII_REDACTION_ENABLED: "true"
+  CONTEXT_WINDOW_MESSAGES: "12"
+  CORS_ORIGINS: "*"
+  DATABASE_URL: "postgresql+asyncpg://ollive:ollive@postgres:5432/ollive"
+  DATABASE_URL_SYNC: "postgresql://ollive:ollive@postgres:5432/ollive"
+  REDIS_URL: "redis://redis:6379/0"
