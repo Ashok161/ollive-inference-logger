@@ -21,7 +21,7 @@
                  └───────┬────────┘                    └────────────────┘
                          ▼
                  ┌────────────────┐
-                 │ Worker(s)      │── idempotent upsert ──► PostgreSQL
+                 │ Worker(s)      │── insert-or-skip (event_id) ──► PostgreSQL
                  └────────────────┘
 ```
 
@@ -39,7 +39,7 @@
    - validates with Pydantic
    - publishes to **Redis Streams** (event-based path)
    - also persists synchronously so dashboards stay snappy
-5. Workers consume the stream with consumer groups, re-validate, redact PII again, and upsert by `event_id` (idempotent).
+5. Workers consume the stream with consumer groups (plus `XAUTOCLAIM` for idle pending), re-validate, redact PII again, and insert-or-skip by unique `event_id`.
 
 ## Logging strategy
 

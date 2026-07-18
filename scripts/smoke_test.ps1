@@ -38,11 +38,11 @@ Write-Host "== Providers =="
 $providers = Invoke-Json GET "/v1/providers"
 $groq = $providers | Where-Object { $_.id -eq "groq" }
 Assert ($groq.configured -eq $true) "groq configured"
+Assert ($groq.models -contains "openai/gpt-oss-20b") "gpt-oss-20b listed"
 Assert ($groq.models -notcontains "mixtral-8x7b-32768") "mixtral removed from catalog"
-Assert ($groq.models -contains "llama-3.1-8b-instant") "llama-3.1-8b-instant listed"
 
 Write-Host "== Create conversation =="
-$conv = Invoke-Json POST "/v1/conversations" @{ title = "Smoke test"; provider = "groq"; model = "llama-3.1-8b-instant" }
+$conv = Invoke-Json POST "/v1/conversations" @{ title = "Smoke test"; provider = "groq"; model = "openai/gpt-oss-20b" }
 Assert ($null -ne $conv.id) "conversation created"
 $cid = $conv.id
 
@@ -51,7 +51,7 @@ $chat = Invoke-Json POST "/v1/conversations/$cid/chat" @{
   message  = "Reply with exactly: PONG. Ignore my email alice@example.com"
   stream   = $false
   provider = "groq"
-  model    = "llama-3.1-8b-instant"
+  model    = "openai/gpt-oss-20b"
 }
 Assert (($chat.content -as [string]).Length -gt 0) "non-stream response non-empty"
 Write-Host ("  reply: " + $chat.content.Substring(0, [Math]::Min(80, $chat.content.Length)))
@@ -61,7 +61,7 @@ $chat2 = Invoke-Json POST "/v1/conversations/$cid/chat" @{
   message  = "What was my previous one-word instruction? One word only."
   stream   = $false
   provider = "groq"
-  model    = "llama-3.1-8b-instant"
+  model    = "openai/gpt-oss-20b"
 }
 Assert (($chat2.content -as [string]).Length -gt 0) "multi-turn response"
 
@@ -73,8 +73,8 @@ $detail = Invoke-Json GET "/v1/conversations/$cid"
 Assert ($detail.messages.Count -ge 4) "resume has messages"
 
 Write-Host "== Streaming SSE =="
-$streamConv = Invoke-Json POST "/v1/conversations" @{ title = "stream"; provider = "groq"; model = "llama-3.1-8b-instant" }
-$streamBody = @{ message = "Say hi in 3 words."; stream = $true; provider = "groq"; model = "llama-3.1-8b-instant" } | ConvertTo-Json -Compress
+$streamConv = Invoke-Json POST "/v1/conversations" @{ title = "stream"; provider = "groq"; model = "openai/gpt-oss-20b" }
+$streamBody = @{ message = "Say hi in 3 words."; stream = $true; provider = "groq"; model = "openai/gpt-oss-20b" } | ConvertTo-Json -Compress
 $streamRaw = Invoke-WebRequest -Uri "$Base/v1/conversations/$($streamConv.id)/chat" -Method POST -ContentType "application/json" -Body $streamBody -UseBasicParsing -TimeoutSec 120
 Assert ($streamRaw.Content -match "data:") "SSE stream returns data events"
 Assert ($streamRaw.Content -match '"type": "done"' -or $streamRaw.Content -match '"type":"done"') "SSE stream completes"

@@ -20,9 +20,10 @@ End-to-end system for a multi-turn chatbot with **auto-instrumented** inference 
 | Self-hosted k8s manifests | ✅ |
 | Cancel / list / resume conversations | ✅ |
 
-Default provider is **Groq** (OpenAI-compatible, free-tier friendly).
+Default provider is **Groq**; default model is `openai/gpt-oss-20b` (free-tier friendly).
 
-> **Note:** `mixtral-8x7b-32768` was removed from the catalog — Groq decommissioned it (HTTP 400). Current Groq models: `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `openai/gpt-oss-20b`, `openai/gpt-oss-120b`.
+Catalog (Groq): `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`.  
+Gemini catalog uses `gemini-2.5-flash` / `gemini-2.5-flash-lite` (older 1.5/2.0 IDs are shut down).
 
 ## Prerequisites
 
@@ -109,7 +110,9 @@ Dashboards read inference_events from Postgres.
 - `POST /v1/conversations/{id}/cancel`
 - `POST /v1/conversations/{id}/resume`
 - `POST /v1/conversations/{id}/chat` — streaming SSE or JSON
-- `POST /v1/ingest` — SDK ingestion
+- `GET /v1/providers` — available providers/models
+- `POST /v1/ingest` — SDK ingestion (single event)
+- `POST /v1/ingest/batch` — batch ingestion
 - `GET /v1/metrics/summary` — dashboard aggregates
 - `GET /v1/inference-events` — recent telemetry
 
@@ -118,7 +121,7 @@ Dashboards read inference_events from Postgres.
 ```python
 from inference_sdk import InstrumentedLLM, ChatMessage
 
-llm = InstrumentedLLM(provider="groq", model="llama-3.3-70b-versatile")
+llm = InstrumentedLLM(provider="groq", model="openai/gpt-oss-20b")
 text = llm.chat(
     [ChatMessage(role="user", content="Hello")],
     conversation_id="...",
@@ -127,10 +130,13 @@ text = llm.chat(
 
 All calls auto-capture metadata and ship to `INGESTION_URL`.
 
-## Kubernetes (self-hosted)
+## Kubernetes (advanced / self-hosted)
+
+Compose is the primary demo path. Manifests under `k8s/` are for self-hosted clusters.
 
 ```bash
-# Build images + apply manifests (kind/minikube/k3s)
+# Optional: public API URL baked into the web image
+export API_PUBLIC_URL=http://<node-ip>:30800
 bash k8s/deploy.sh
 
 # Or manually
@@ -138,7 +144,7 @@ kubectl apply -k k8s/
 kubectl -n ollive port-forward svc/web 8080:80
 ```
 
-Update `k8s/secret.yaml` with real API keys before applying to a shared cluster.
+Update `k8s/secret.yaml` with real API keys before applying to a shared cluster. Ingress is optional (`k8s/ingress.yaml`).
 
 ## Demo
 

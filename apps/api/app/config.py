@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     google_api_key: str = ""
     default_provider: str = "groq"
-    default_model: str = "llama-3.1-8b-instant"
+    default_model: str = "openai/gpt-oss-20b"
     context_window_messages: int = 12
     pii_redaction_enabled: bool = True
     ingestion_url: str = "http://localhost:8000/v1/ingest"

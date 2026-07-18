@@ -72,6 +72,19 @@ class MessageOut(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @classmethod
+    def from_orm_message(cls, message) -> "MessageOut":
+        """Prefer redacted content for public API responses."""
+        text = message.content_redacted or message.content
+        return cls(
+            id=message.id,
+            conversation_id=message.conversation_id,
+            role=message.role,
+            content=text,
+            status=message.status,
+            created_at=message.created_at,
+        )
+
 
 class ConversationDetail(ConversationOut):
     messages: list[MessageOut] = Field(default_factory=list)

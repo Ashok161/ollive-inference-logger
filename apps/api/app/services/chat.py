@@ -20,10 +20,10 @@ PROVIDERS = {
         "label": "Groq",
         # mixtral-8x7b-32768 was decommissioned (returns HTTP 400).
         "models": [
-            "llama-3.1-8b-instant",
-            "llama-3.3-70b-versatile",
             "openai/gpt-oss-20b",
             "openai/gpt-oss-120b",
+            "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile",
         ],
         "env": "GROQ_API_KEY",
     },
@@ -39,7 +39,8 @@ PROVIDERS = {
     },
     "gemini": {
         "label": "Google Gemini",
-        "models": ["gemini-2.0-flash", "gemini-1.5-flash"],
+        # gemini-1.5 / 2.0 flash are shut down; use current stable IDs
+        "models": ["gemini-2.5-flash", "gemini-2.5-flash-lite"],
         "env": "GOOGLE_API_KEY",
     },
 }

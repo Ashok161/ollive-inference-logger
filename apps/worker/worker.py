@@ -2,7 +2,7 @@
 Event-based ingestion worker.
 
 Consumes inference log events from Redis Streams, validates/parses them,
-applies PII redaction, and upserts into Postgres.
+applies PII redaction, and insert-or-skips into Postgres by event_id.
 """
 
 from __future__ import annotations
@@ -188,8 +188,47 @@ def main() -> None:
         settings.worker_group,
     )
 
+    def handle_batch(messages) -> None:
+        with Session(engine) as session:
+            for msg_id, fields in messages:
+                raw = fields.get("payload") or "{}"
+                try:
+                    payload = json.loads(raw)
+                    process_payload(session, payload)
+                    r.xack(settings.ingestion_queue, settings.worker_group, msg_id)
+                except (ValidationError, ValueError, KeyError, json.JSONDecodeError) as exc:
+                    logger.warning("Bad payload %s: %s", msg_id, exc)
+                    session.add(
+                        IngestDeadLetter(
+                            payload={"raw": raw},
+                            error=str(exc)[:2000],
+                        )
+                    )
+                    session.commit()
+                    r.xack(settings.ingestion_queue, settings.worker_group, msg_id)
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("Failed processing %s: %s", msg_id, exc)
+                    time.sleep(1)
+
     while RUNNING:
         try:
+            # Reclaim idle pending entries (PEL) so crashed workers don't lose events.
+            try:
+                claimed = r.xautoclaim(
+                    name=settings.ingestion_queue,
+                    groupname=settings.worker_group,
+                    consumername=settings.worker_name,
+                    min_idle_time=60_000,
+                    start_id="0-0",
+                    count=20,
+                )
+                # redis-py returns (next_id, messages[, deleted]) depending on version
+                pending_msgs = claimed[1] if isinstance(claimed, (list, tuple)) else []
+                if pending_msgs:
+                    handle_batch(pending_msgs)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("XAUTOCLAIM skipped: %s", exc)
+
             resp = r.xreadgroup(
                 groupname=settings.worker_group,
                 consumername=settings.worker_name,
@@ -199,27 +238,8 @@ def main() -> None:
             )
             if not resp:
                 continue
-            with Session(engine) as session:
-                for _stream, messages in resp:
-                    for msg_id, fields in messages:
-                        raw = fields.get("payload") or "{}"
-                        try:
-                            payload = json.loads(raw)
-                            process_payload(session, payload)
-                            r.xack(settings.ingestion_queue, settings.worker_group, msg_id)
-                        except (ValidationError, ValueError, KeyError, json.JSONDecodeError) as exc:
-                            logger.warning("Bad payload %s: %s", msg_id, exc)
-                            session.add(
-                                IngestDeadLetter(
-                                    payload={"raw": raw},
-                                    error=str(exc)[:2000],
-                                )
-                            )
-                            session.commit()
-                            r.xack(settings.ingestion_queue, settings.worker_group, msg_id)
-                        except Exception as exc:  # noqa: BLE001
-                            logger.exception("Failed processing %s: %s", msg_id, exc)
-                            time.sleep(1)
+            for _stream, messages in resp:
+                handle_batch(messages)
         except redis.ConnectionError:
             logger.warning("Redis connection lost; retrying…")
             time.sleep(2)

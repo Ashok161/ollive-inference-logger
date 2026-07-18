@@ -32,7 +32,7 @@ class InstrumentedLLM:
         enabled: bool = True,
     ) -> None:
         self.provider = Provider(provider) if isinstance(provider, str) else provider
-        self.model = model or os.getenv("DEFAULT_MODEL", "llama-3.1-8b-instant")
+        self.model = model or os.getenv("DEFAULT_MODEL", "openai/gpt-oss-20b")
         self.adapter = get_adapter(self.provider, api_key=api_key, base_url=base_url)
         self.redact_pii = redact_pii
         self.shipper = LogShipper(

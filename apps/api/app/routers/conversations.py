@@ -69,7 +69,7 @@ async def get_conversation(conversation_id: UUID, session: AsyncSession = Depend
         raise HTTPException(status_code=404, detail="Conversation not found")
     return ConversationDetail(
         **_conv_out(conv, len(conv.messages)).model_dump(),
-        messages=[MessageOut.model_validate(m) for m in conv.messages],
+        messages=[MessageOut.from_orm_message(m) for m in conv.messages],
     )
 
 

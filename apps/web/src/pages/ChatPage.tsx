@@ -13,7 +13,7 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [active, setActive] = useState<ConversationDetail | null>(null);
   const [provider, setProvider] = useState("groq");
-  const [model, setModel] = useState("llama-3.1-8b-instant");
+  const [model, setModel] = useState("openai/gpt-oss-20b");
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);

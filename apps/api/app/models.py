@@ -32,7 +32,7 @@ class Conversation(Base):
     status: Mapped[str] = mapped_column(String(32), default="active", index=True)
     # active | cancelled | completed
     provider: Mapped[str] = mapped_column(String(64), default="groq")
-    model: Mapped[str] = mapped_column(String(128), default="llama-3.3-70b-versatile")
+    model: Mapped[str] = mapped_column(String(128), default="openai/gpt-oss-20b")
     session_id: Mapped[str] = mapped_column(String(64), index=True)
     cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
     metadata_json: Mapped[dict] = mapped_column(JSONB, default=dict)
