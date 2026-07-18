@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential redis-server \
   && rm -rf /var/lib/apt/lists/*
 
 COPY packages/inference-sdk /packages/inference-sdk
@@ -24,6 +24,7 @@ RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 ENV EMBED_WORKER=true
+ENV EMBED_REDIS=true
 EXPOSE 8000
 
 CMD ["/app/start.sh"]

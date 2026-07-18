@@ -33,9 +33,13 @@ class Settings(BaseSettings):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         elif url.startswith("postgresql://") and "+asyncpg" not in url:
             url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # asyncpg prefers ssl=require over sslmode=require
+        url = url.replace("sslmode=require", "ssl=require")
+        url = url.replace("&channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
         sync = self.database_url_sync
         if sync.startswith("postgres://"):
             sync = sync.replace("postgres://", "postgresql://", 1)
+        sync = sync.replace("&channel_binding=require", "").replace("channel_binding=require&", "").replace("channel_binding=require", "")
         self.database_url = url
         self.database_url_sync = sync
         return self
