@@ -6,19 +6,19 @@ End-to-end system for a multi-turn chatbot with **auto-instrumented** inference 
 
 | Requirement | Status |
 |-------------|--------|
-| Multi-turn chatbot + short context + UI | ✅ |
-| Lightweight SDK / auto-instrumentation | ✅ `packages/inference-sdk` |
-| Near-real-time ingestion API | ✅ `POST /v1/ingest` |
-| Validate / parse / store metadata | ✅ |
-| Chat messages + inference logs schema | ✅ |
-| Multi-provider (Groq, OpenAI, Anthropic, Gemini) | ✅ |
-| Streaming responses (SSE) | ✅ |
-| Latency / throughput / errors dashboards | ✅ |
-| Docker Compose one-command setup | ✅ |
-| Event-based architecture (Redis Streams) | ✅ |
-| PII redaction | ✅ |
-| Self-hosted k8s manifests | ✅ |
-| Cancel / list / resume conversations | ✅ |
+| Multi-turn chatbot + short context + UI | Done |
+| Lightweight SDK / auto-instrumentation | Done — `packages/inference-sdk` |
+| Near-real-time ingestion API | Done — `POST /v1/ingest` |
+| Validate / parse / store metadata | Done |
+| Chat messages + inference logs schema | Done |
+| Multi-provider (Groq, OpenAI, Anthropic, Gemini) | Done |
+| Streaming responses (SSE) | Done |
+| Latency / throughput / errors dashboards | Done |
+| Docker Compose one-command setup | Done |
+| Event-based architecture (Redis Streams) | Done |
+| PII redaction | Done |
+| Self-hosted k8s manifests | Done |
+| Cancel / list / resume conversations | Done |
 
 Default provider is **Groq**; default model is `openai/gpt-oss-20b` (free-tier friendly).
 
@@ -150,7 +150,7 @@ Update `k8s/secret.yaml` with real API keys before applying to a shared cluster.
 
 1. Start with `docker compose up --build`
 2. Open http://localhost:3000
-3. Send a few chat messages (try including an email to see redaction in dashboards)
+3. Send a few chat messages (include a sample address like `user@example.com` to see redaction in dashboards)
 4. Open **Dashboards** for latency / throughput / errors
 5. Use **Cancel** mid-stream, then **Resume** to continue the same conversation
 
@@ -175,16 +175,6 @@ Covers health, providers, multi-turn chat, streaming SSE, cancel/resume, every G
 - Stronger PII (NER-based) + field-level encryption
 - Load tests + SLO burn-rate alerts
 - Helm chart + Terraform for cloud k8s
-
-## Submission checklist
-
-- [x] GitHub-ready source
-- [x] README (setup, architecture, schema, tradeoffs, future work)
-- [x] Architecture notes (`ARCHITECTURE.md`)
-- [x] Demo via Docker Compose (hosted link optional)
-
-Email to: **team@brank.ai**
-Deadline: **19 July 2026 EOD**
 
 ## License
 
