@@ -14,11 +14,22 @@ import { api, MetricsSummary } from "../api";
 
 function shortTs(ts: string) {
   try {
-    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(ts).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   } catch {
     return ts;
   }
 }
+
+const tooltipStyle = {
+  background: "rgba(255,255,255,0.95)",
+  border: "1px solid rgba(16,20,28,0.12)",
+  borderRadius: 4,
+  fontFamily: "JetBrains Mono, monospace",
+  fontSize: 12,
+};
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
@@ -68,24 +79,32 @@ export default function DashboardPage() {
 
   return (
     <div className="dashboard">
-      <div className="chat-toolbar" style={{ border: "1px solid var(--line)", borderRadius: 18 }}>
+      <div className="dash-hero">
         <div>
-          <h2 style={{ margin: 0, fontFamily: "var(--font-display)" }}>
-            Latency · Throughput · Errors
-          </h2>
-          <p style={{ margin: "0.25rem 0 0", color: "var(--muted)" }}>
-            Live view over inference events (auto-refresh 5s)
+          <h2>Latency. Throughput. Errors.</h2>
+          <p>
+            Live aggregates from the ingestion pipeline. Every instrumented
+            model call shows up here within seconds.
           </p>
         </div>
-        <select
-          value={windowMinutes}
-          onChange={(e) => setWindowMinutes(Number(e.target.value))}
-        >
-          <option value={15}>Last 15m</option>
-          <option value={60}>Last 60m</option>
-          <option value={180}>Last 3h</option>
-          <option value={1440}>Last 24h</option>
-        </select>
+        <div className="controls">
+          <span className="live-dot">
+            <i aria-hidden="true" />
+            Live · 5s
+          </span>
+          <label className="field">
+            <span>Window</span>
+            <select
+              value={windowMinutes}
+              onChange={(e) => setWindowMinutes(Number(e.target.value))}
+            >
+              <option value={15}>Last 15m</option>
+              <option value={60}>Last 60m</option>
+              <option value={180}>Last 3h</option>
+              <option value={1440}>Last 24h</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       {error && <div className="msg system">{error}</div>}
@@ -97,15 +116,21 @@ export default function DashboardPage() {
         </div>
         <div className="kpi">
           <label>Avg latency</label>
-          <strong>{metrics ? `${metrics.avg_latency_ms.toFixed(0)} ms` : "—"}</strong>
+          <strong>
+            {metrics ? `${metrics.avg_latency_ms.toFixed(0)}ms` : "—"}
+          </strong>
         </div>
         <div className="kpi">
           <label>p95 latency</label>
-          <strong>{metrics ? `${metrics.p95_latency_ms.toFixed(0)} ms` : "—"}</strong>
+          <strong>
+            {metrics ? `${metrics.p95_latency_ms.toFixed(0)}ms` : "—"}
+          </strong>
         </div>
-        <div className="kpi">
+        <div className={`kpi ${metrics && metrics.error_rate > 0 ? "alert" : ""}`}>
           <label>Error rate</label>
-          <strong>{metrics ? `${(metrics.error_rate * 100).toFixed(1)}%` : "—"}</strong>
+          <strong>
+            {metrics ? `${(metrics.error_rate * 100).toFixed(1)}%` : "—"}
+          </strong>
         </div>
       </div>
 
@@ -120,7 +145,9 @@ export default function DashboardPage() {
         </div>
         <div className="kpi">
           <label>Avg TTFT</label>
-          <strong>{metrics ? `${metrics.avg_ttft_ms.toFixed(0)} ms` : "—"}</strong>
+          <strong>
+            {metrics ? `${metrics.avg_ttft_ms.toFixed(0)}ms` : "—"}
+          </strong>
         </div>
         <div className="kpi">
           <label>Tokens</label>
@@ -135,27 +162,29 @@ export default function DashboardPage() {
             <AreaChart data={latencyData}>
               <defs>
                 <linearGradient id="lat" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#0b6e4f" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#0b6e4f" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#1f7a5c" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#1f7a5c" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid stroke="rgba(20,32,26,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
+              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} />
+              <Tooltip contentStyle={tooltipStyle} />
               <Area
                 type="monotone"
                 dataKey="avg_latency_ms"
-                stroke="#0b6e4f"
+                stroke="#1f7a5c"
                 fill="url(#lat)"
                 name="avg ms"
+                strokeWidth={2}
               />
               <Area
                 type="monotone"
                 dataKey="p95_latency_ms"
-                stroke="#1aa37a"
+                stroke="#e24a1b"
                 fillOpacity={0}
                 name="p95 ms"
+                strokeWidth={1.5}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -165,11 +194,11 @@ export default function DashboardPage() {
           <h3>Throughput</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={throughputData}>
-              <CartesianGrid stroke="rgba(20,32,26,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip />
-              <Bar dataKey="requests" fill="#0b6e4f" radius={[6, 6, 0, 0]} />
+              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Bar dataKey="requests" fill="#10141c" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -180,15 +209,16 @@ export default function DashboardPage() {
           <h3>Errors over time</h3>
           <ResponsiveContainer width="100%" height={220}>
             <AreaChart data={errorData}>
-              <CartesianGrid stroke="rgba(20,32,26,0.08)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
-              <Tooltip />
+              <CartesianGrid stroke="rgba(16,20,28,0.08)" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#6b7585" }} />
+              <YAxis tick={{ fontSize: 11, fill: "#6b7585" }} allowDecimals={false} />
+              <Tooltip contentStyle={tooltipStyle} />
               <Area
                 type="monotone"
                 dataKey="errors"
-                stroke="#b42318"
-                fill="rgba(180,35,24,0.15)"
+                stroke="#c42318"
+                fill="rgba(196,35,24,0.12)"
+                strokeWidth={2}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -196,17 +226,18 @@ export default function DashboardPage() {
 
         <div className="panel">
           <h3>By provider</h3>
-          <div className="events">
+          <div className="provider-list">
             {(metrics?.by_provider || []).map((p) => (
-              <div className="event-row" key={p.provider}>
-                <span>{p.provider}</span>
-                <span>{p.count} req</span>
-                <span>{p.avg_latency_ms.toFixed(0)} ms avg</span>
+              <div className="provider-row" key={p.provider}>
+                <strong>{p.provider}</strong>
+                <span>{p.count} req · {p.avg_latency_ms.toFixed(0)}ms</span>
                 <span className={p.errors ? "err" : "ok"}>{p.errors} err</span>
               </div>
             ))}
             {!metrics?.by_provider?.length && (
-              <div className="msg system">No inference traffic yet — send a chat message.</div>
+              <div className="sidebar-empty">
+                No inference traffic yet — send a chat message.
+              </div>
             )}
           </div>
         </div>
@@ -217,7 +248,9 @@ export default function DashboardPage() {
         <div className="events">
           {events.map((e) => (
             <div className="event-row" key={e.id}>
-              <span className={e.status === "error" ? "err" : "ok"}>{e.status}</span>
+              <span className={e.status === "error" ? "err" : "ok"}>
+                {e.status}
+              </span>
               <span>{Math.round(e.latency_ms)}ms</span>
               <span>
                 {e.provider}/{e.model} · {e.input_preview?.slice(0, 48)}
@@ -225,6 +258,9 @@ export default function DashboardPage() {
               <span>{e.total_tokens} tok</span>
             </div>
           ))}
+          {!events.length && (
+            <div className="sidebar-empty">Waiting for events…</div>
+          )}
         </div>
       </div>
     </div>

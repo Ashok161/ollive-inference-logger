@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import IngestDeadLetter, InferenceEvent
@@ -61,11 +62,25 @@ async def persist_inference_event(
         raw_payload=data.model_dump(mode="json"),
     )
     session.add(event)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Dual-write race: worker (or concurrent ingest) already stored this event_id.
+        await session.rollback()
+        existing = await session.scalar(
+            select(InferenceEvent).where(InferenceEvent.event_id == data.event_id)
+        )
+        if existing:
+            return existing
+        raise
     await session.refresh(event)
     return event
 
 
 async def dead_letter(session: AsyncSession, payload: dict[str, Any], error: str) -> None:
-    session.add(IngestDeadLetter(payload=payload, error=error[:2000]))
-    await session.commit()
+    try:
+        session.add(IngestDeadLetter(payload=payload, error=error[:2000]))
+        await session.commit()
+    except Exception:  # noqa: BLE001
+        await session.rollback()
+        logger.warning("Failed to write dead letter")

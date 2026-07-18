@@ -30,7 +30,10 @@ export default function ChatPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [p, list] = await Promise.all([api.providers(), api.listConversations()]);
+        const [p, list] = await Promise.all([
+          api.providers(),
+          api.listConversations(),
+        ]);
         setProviders(p);
         setConversations(list);
         const configured = p.find((x) => x.configured) || p[0];
@@ -52,7 +55,11 @@ export default function ChatPage() {
     const detail = await api.getConversation(id);
     setActive(detail);
     setProvider(detail.provider);
-    setModel(detail.model);
+    const available =
+      providers.find((p) => p.id === detail.provider)?.models || models;
+    setModel(
+      available.includes(detail.model) ? detail.model : available[0] || detail.model
+    );
     setError(null);
   }
 
@@ -112,9 +119,7 @@ export default function ChatPage() {
     };
 
     setActive((prev) =>
-      prev
-        ? { ...prev, messages: [...prev.messages, userMsg, assistantMsg] }
-        : prev
+      prev ? { ...prev, messages: [...prev.messages, userMsg, assistantMsg] } : prev
     );
 
     const controller = new AbortController();
@@ -148,14 +153,17 @@ export default function ChatPage() {
     }
   }
 
+  const cancelled = active?.status === "cancelled";
+
   return (
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-actions">
-          <button className="btn primary" onClick={onNew} style={{ flex: 1 }}>
-            New chat
+          <button className="btn primary" onClick={onNew}>
+            New conversation
           </button>
         </div>
+        <div className="sidebar-label">History</div>
         <div className="conv-list">
           {conversations.map((c) => (
             <button
@@ -165,14 +173,12 @@ export default function ChatPage() {
             >
               <strong>{c.title}</strong>
               <small>
-                {c.status} · {c.message_count} msgs · {c.provider}
+                {c.status} · {c.message_count} · {c.provider}
               </small>
             </button>
           ))}
           {!conversations.length && (
-            <div className="empty" style={{ padding: "1rem 0" }}>
-              No conversations yet
-            </div>
+            <div className="sidebar-empty">No conversations yet</div>
           )}
         </div>
       </aside>
@@ -180,36 +186,55 @@ export default function ChatPage() {
       <section className="main">
         <div className="chat-toolbar">
           <div className="controls">
-            <select value={provider} onChange={(e) => {
-              const p = e.target.value;
-              setProvider(p);
-              const meta = providers.find((x) => x.id === p);
-              if (meta?.models[0]) setModel(meta.models[0]);
-            }}>
-              {providers.map((p) => (
-                <option key={p.id} value={p.id} disabled={!p.configured}>
-                  {p.label}{p.configured ? "" : " (not configured)"}
-                </option>
-              ))}
-            </select>
-            <select value={model} onChange={(e) => setModel(e.target.value)}>
-              {models.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+            <label className="field">
+              <span>Provider</span>
+              <select
+                value={provider}
+                onChange={(e) => {
+                  const p = e.target.value;
+                  setProvider(p);
+                  const meta = providers.find((x) => x.id === p);
+                  if (meta?.models[0]) setModel(meta.models[0]);
+                }}
+              >
+                {providers.map((p) => (
+                  <option key={p.id} value={p.id} disabled={!p.configured}>
+                    {p.label}
+                    {p.configured ? "" : " — offline"}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Model</span>
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </label>
             {active && (
-              <span className={`status-pill ${active.status === "cancelled" ? "cancelled" : ""}`}>
+              <span
+                className={`status-tag ${cancelled ? "cancelled" : ""}`}
+                style={{ alignSelf: "end", marginBottom: 2 }}
+              >
                 {active.status}
               </span>
             )}
           </div>
           <div className="controls">
-            <button className="btn danger" disabled={!active || streaming} onClick={onCancel}>
+            <button
+              className="btn danger"
+              disabled={!active || streaming}
+              onClick={onCancel}
+            >
               Cancel
             </button>
             <button
-              className="btn"
-              disabled={!active || active.status !== "cancelled"}
+              className="btn ghost"
+              disabled={!active || !cancelled}
               onClick={onResume}
             >
               Resume
@@ -218,45 +243,73 @@ export default function ChatPage() {
         </div>
 
         <div className="messages">
-          {!active && (
-            <div className="empty">
-              <h2>Start a conversation</h2>
-              <p>
-                Multi-turn chat with short context window. Every inference is
-                auto-instrumented and shipped to the ingestion pipeline.
-              </p>
-            </div>
-          )}
-          {active?.messages.map((m) => (
-            <div key={m.id} className={`msg ${m.role}`}>
-              {m.content || (m.status === "streaming" ? "…" : "")}
-            </div>
-          ))}
-          {error && <div className="msg system">{error}</div>}
-          <div ref={bottomRef} />
+          <div className="messages-inner">
+            {!active && (
+              <div className="empty-stage">
+                <p className="wordmark">Ollive</p>
+                <h2>Ask anything. Watch every inference.</h2>
+                <p>
+                  Multi-turn chat with a short context window. Each reply is
+                  auto-instrumented — latency, tokens, and errors stream into
+                  the observatory.
+                </p>
+              </div>
+            )}
+            {active?.messages
+              .filter((m) => m.role !== "system")
+              .map((m) => (
+                <div
+                  key={m.id}
+                  className={`msg ${m.role} ${
+                    m.status === "streaming" ||
+                    (streaming && m.id.startsWith("tmp-assistant"))
+                      ? "streaming"
+                      : ""
+                  } ${m.status === "error" ? "error" : ""}`}
+                >
+                  <div className="msg-meta">
+                    {m.role === "user"
+                      ? "You"
+                      : m.status === "error"
+                        ? "Assistant · error"
+                        : "Assistant"}
+                  </div>
+                  <div className="msg-body">
+                    {m.content || (m.status === "streaming" ? "" : "")}
+                  </div>
+                </div>
+              ))}
+            {error && <div className="msg system">{error}</div>}
+            <div ref={bottomRef} />
+          </div>
         </div>
 
-        <form className="composer" onSubmit={onSend}>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={
-              active?.status === "cancelled"
-                ? "Conversation cancelled — resume to continue"
-                : "Message Ollive…"
-            }
-            disabled={streaming || active?.status === "cancelled"}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                onSend();
+        <div className="composer-wrap">
+          <form className="composer" onSubmit={onSend}>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder={
+                cancelled
+                  ? "Cancelled — resume this thread to continue"
+                  : "Message Ollive…"
               }
-            }}
-          />
-          <button className="btn primary" disabled={streaming || !input.trim() || active?.status === "cancelled"}>
-            {streaming ? "Streaming…" : "Send"}
-          </button>
-        </form>
+              disabled={streaming || cancelled}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  onSend();
+                }
+              }}
+            />
+            <button
+              className="btn primary"
+              disabled={streaming || !input.trim() || cancelled}
+            >
+              {streaming ? "Streaming" : "Send"}
+            </button>
+          </form>
+        </div>
       </section>
     </div>
   );

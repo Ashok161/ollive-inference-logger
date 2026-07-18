@@ -156,7 +156,14 @@ def process_payload(session: Session, payload: dict) -> None:
         raw_payload=payload,
     )
     session.add(event)
-    session.commit()
+    try:
+        session.commit()
+    except Exception as exc:  # noqa: BLE001
+        session.rollback()
+        # Idempotent under dual-write / at-least-once delivery
+        if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
+            return
+        raise
 
 
 def ensure_group(r: redis.Redis) -> None:

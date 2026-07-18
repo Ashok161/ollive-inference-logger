@@ -18,7 +18,13 @@ from .pii import redact_pii
 PROVIDERS = {
     "groq": {
         "label": "Groq",
-        "models": ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+        # mixtral-8x7b-32768 was decommissioned (returns HTTP 400).
+        "models": [
+            "llama-3.1-8b-instant",
+            "llama-3.3-70b-versatile",
+            "openai/gpt-oss-20b",
+            "openai/gpt-oss-120b",
+        ],
         "env": "GROQ_API_KEY",
     },
     "openai": {
@@ -254,7 +260,11 @@ async def stream_chat(
             conv.status = "active"
         await session.commit()
     except Exception as exc:  # noqa: BLE001
-        assistant.content = "".join(chunks) or f"Error: {exc}"
+        # Prefer a clean provider message over raw httpx dumps.
+        message = str(exc).strip() or "Model request failed"
+        if message.startswith("Error:"):
+            message = message[6:].strip()
+        assistant.content = "".join(chunks) or message
         assistant.status = "error"
         await session.commit()
-        raise
+        raise ValueError(message) from exc

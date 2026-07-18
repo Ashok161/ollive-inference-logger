@@ -22,6 +22,8 @@ End-to-end system for a multi-turn chatbot with **auto-instrumented** inference 
 
 Default provider is **Groq** (OpenAI-compatible, free-tier friendly).
 
+> **Note:** `mixtral-8x7b-32768` was removed from the catalog — Groq decommissioned it (HTTP 400). Current Groq models: `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`, `openai/gpt-oss-20b`, `openai/gpt-oss-120b`.
+
 ## Quick start (Docker Compose)
 
 ```bash
@@ -142,6 +144,16 @@ Update `k8s/secret.yaml` with real API keys before applying to a shared cluster.
 5. Use **Cancel** mid-stream, then **Resume** to continue the same conversation
 
 Optional: record a Loom of the above flow for submission.
+
+### Smoke tests
+
+With the stack running:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts/smoke_test.ps1
+```
+
+Covers health, providers, multi-turn chat, streaming SSE, cancel/resume, every Groq model, PII redaction, metrics, and ingest auth.
 
 ## What we’d improve with more time
 

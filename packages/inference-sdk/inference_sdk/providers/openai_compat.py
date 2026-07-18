@@ -5,6 +5,7 @@ from typing import Any, AsyncIterator, Iterator
 
 import httpx
 
+from ..errors import raise_for_provider_response
 from ..models import ChatMessage, TokenUsage
 from .base import ProviderAdapter
 
@@ -30,7 +31,8 @@ class OpenAICompatAdapter(ProviderAdapter):
             "messages": [m.model_dump() for m in messages],
             "stream": stream,
         }
-        if stream:
+        # Groq/OpenAI support this; omit if caller disables
+        if stream and kwargs.pop("include_usage", True):
             payload["stream_options"] = {"include_usage": True}
         for key in ("temperature", "max_tokens", "top_p"):
             if key in kwargs and kwargs[key] is not None:
@@ -55,7 +57,7 @@ class OpenAICompatAdapter(ProviderAdapter):
                 headers=self._headers(),
                 json=self._payload(model, messages, stream=False, **kwargs),
             )
-            resp.raise_for_status()
+            raise_for_provider_response(resp, provider=self.name, model=model)
             data = resp.json()
             content = data["choices"][0]["message"]["content"] or ""
             return content, self._usage_from(data)
@@ -70,7 +72,9 @@ class OpenAICompatAdapter(ProviderAdapter):
                 headers=self._headers(),
                 json=self._payload(model, messages, stream=True, **kwargs),
             ) as resp:
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    resp.read()
+                    raise_for_provider_response(resp, provider=self.name, model=model)
                 usage: TokenUsage | None = None
                 for line in resp.iter_lines():
                     if not line or not line.startswith("data:"):
@@ -100,7 +104,7 @@ class OpenAICompatAdapter(ProviderAdapter):
                 headers=self._headers(),
                 json=self._payload(model, messages, stream=False, **kwargs),
             )
-            resp.raise_for_status()
+            raise_for_provider_response(resp, provider=self.name, model=model)
             data = resp.json()
             content = data["choices"][0]["message"]["content"] or ""
             return content, self._usage_from(data)
@@ -115,7 +119,9 @@ class OpenAICompatAdapter(ProviderAdapter):
                 headers=self._headers(),
                 json=self._payload(model, messages, stream=True, **kwargs),
             ) as resp:
-                resp.raise_for_status()
+                if resp.status_code >= 400:
+                    await resp.aread()
+                    raise_for_provider_response(resp, provider=self.name, model=model)
                 usage: TokenUsage | None = None
                 async for line in resp.aiter_lines():
                     if not line or not line.startswith("data:"):
