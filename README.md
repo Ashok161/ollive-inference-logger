@@ -2,6 +2,23 @@
 
 End-to-end system for a multi-turn chatbot with **auto-instrumented** inference logging, near-real-time ingestion, Postgres storage, event-based workers, PII redaction, streaming chat, latency/throughput/error dashboards, Docker Compose, and self-hosted Kubernetes manifests.
 
+## Live production demo
+
+| | |
+|---|---|
+| **URL** | https://ollive-api.onrender.com |
+| **Health** | https://ollive-api.onrender.com/health |
+| **API docs** | https://ollive-api.onrender.com/docs |
+
+**Production layout**
+
+- **Render** (one free web service): UI + API + worker + embedded Redis
+- **Neon**: managed Postgres (`DATABASE_URL` / `DATABASE_URL_SYNC`)
+
+Cold starts on Render free tier can take ~30–60s after idle — refresh once if the first request times out.
+
+Repo: https://github.com/Ashok161/ollive-inference-logger
+
 ## Features
 
 | Requirement | Status |
@@ -20,77 +37,114 @@ End-to-end system for a multi-turn chatbot with **auto-instrumented** inference 
 | Self-hosted k8s manifests | Done |
 | Cancel / list / resume conversations | Done |
 
-Default provider is **Groq**; default model is `openai/gpt-oss-20b` (free-tier friendly).
+Default provider is **Groq**; default model is `openai/gpt-oss-20b`.
 
 Catalog (Groq): `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `llama-3.1-8b-instant`, `llama-3.3-70b-versatile`.  
-Gemini catalog uses `gemini-2.5-flash` / `gemini-2.5-flash-lite` (older 1.5/2.0 IDs are shut down).
+Gemini catalog uses `gemini-2.5-flash` / `gemini-2.5-flash-lite`.
 
-## Prerequisites
+---
+
+## Path A — Local (Docker Compose)
+
+Best for development and the full multi-container topology (separate Postgres, Redis, API, worker, web).
+
+### Prerequisites
 
 - Docker Desktop (or Docker Engine + Compose)
-- A free [Groq](https://console.groq.com) API key (`GROQ_API_KEY`)
+- A [Groq](https://console.groq.com) API key (`GROQ_API_KEY`)
 
-## Free hosted demo (Netlify + Render + Neon + Upstash)
-
-Long-running free tier path (no Railway):
-
-1. **Neon** — create a free Postgres project; copy the connection string.
-2. **Upstash** — create a free Redis database; copy the Redis URL (`rediss://…`).
-3. **Render** — New Blueprint from this repo (`render.yaml`), set:
-   - `GROQ_API_KEY`
-   - `DATABASE_URL` and `DATABASE_URL_SYNC` (same Neon URL)
-   - `REDIS_URL` (Upstash)
-4. **Netlify** — import this repo, base `apps/web`, set build env:
-   - `VITE_API_URL=https://<your-render-service>.onrender.com`
-
-Cold starts on Render free tier can take ~30–60s after idle.
-
-## Quick start (Docker Compose)
+### Run
 
 ```bash
-# 1. Configure env
 cp .env.example .env
-# Put your GROQ_API_KEY (or other provider keys) in .env
+# Set GROQ_API_KEY in .env
 
-# 2. One command
 docker compose up --build
 ```
 
-Open:
+| Service | URL |
+|---------|-----|
+| UI | http://localhost:3000 |
+| API docs | http://localhost:8000/docs |
+| Health | http://localhost:8000/health |
 
-- **UI**: http://localhost:3000
-- **API docs**: http://localhost:8000/docs
-- **Health**: http://localhost:8000/health
+The web container proxies `/api/*` to the API (same-origin from the browser).
 
-## Local development (without Docker for app code)
+### Smoke tests (local)
 
 ```bash
-# Infra
+powershell -ExecutionPolicy Bypass -File scripts/smoke_test.ps1
+```
+
+### Local development (optional, without Docker for app code)
+
+```bash
 docker compose up -d postgres redis
 
-# SDK
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 source .venv/bin/activate
 pip install -e packages/inference-sdk
 pip install -r apps/api/requirements-dev.txt
 
-# API
-cd apps/api
-uvicorn app.main:app --reload --port 8000
+cd apps/api && uvicorn app.main:app --reload --port 8000
 
-# Worker (separate terminal)
-cd apps/worker
-pip install -r requirements.txt
-python worker.py
+# separate terminal
+cd apps/worker && pip install -r requirements.txt && python worker.py
 
-# Web
-cd apps/web
-npm install
-npm run dev
+# separate terminal
+cd apps/web && npm install && npm run dev
 ```
 
-UI: http://localhost:5173
+UI: http://localhost:5173 (set `VITE_API_URL=http://localhost:8000` if needed).
+
+---
+
+## Path B — Production (Render + Neon)
+
+Single public URL: UI and API on Render; Postgres on Neon.
+
+### Architecture (production)
+
+```
+Browser → Render (FastAPI serves UI + /v1 API)
+                ├─ embedded Redis Streams
+                ├─ embedded worker
+                └─ Neon Postgres
+```
+
+Root [`Dockerfile`](./Dockerfile) builds the web UI (`VITE_API_URL=` same-origin), then packs API + worker + Redis + static UI into one image.
+
+### Deploy / redeploy
+
+1. Create a free [Neon](https://neon.tech) Postgres project; copy the connection string.
+2. Create a Render **Web Service** from this GitHub repo (Docker, root `Dockerfile`), or use:
+
+```bash
+# Requires RENDER_API_KEY from Render → Account Settings → API Keys
+# Local .env must contain GROQ_API_KEY, DATABASE_URL, DATABASE_URL_SYNC
+powershell -ExecutionPolicy Bypass -File scripts/deploy_render.ps1
+```
+
+3. Set these env vars on the Render service:
+
+| Variable | Value |
+|----------|--------|
+| `GROQ_API_KEY` | your Groq key |
+| `DATABASE_URL` | Neon URL (`postgresql://…` or `postgresql+asyncpg://…`) |
+| `DATABASE_URL_SYNC` | same Neon URL (`postgresql://…`) |
+| `EMBED_WORKER` | `true` |
+| `EMBED_REDIS` | `true` |
+| `STATIC_DIR` | `/app/static` |
+| `CORS_ORIGINS` | `*` (or your exact origin) |
+| `DEFAULT_PROVIDER` | `groq` |
+| `DEFAULT_MODEL` | `openai/gpt-oss-20b` |
+
+4. Open https://ollive-api.onrender.com
+
+Blueprint reference: [`render.yaml`](./render.yaml).
+
+---
 
 ## Architecture (short)
 
@@ -116,6 +170,7 @@ Dashboards read inference_events from Postgres.
 - Previews (not full prompts) in telemetry reduce PII/storage risk.
 - Regex PII redaction is lightweight; not a full DLP pipeline.
 - Redis Streams over Kafka — simpler ops for this scale.
+- Production packs UI/API/worker/Redis into one Render service for free-tier simplicity; Compose keeps them separate for local fidelity.
 
 ## API surface
 
@@ -147,10 +202,9 @@ All calls auto-capture metadata and ship to `INGESTION_URL`.
 
 ## Kubernetes (advanced / self-hosted)
 
-Compose is the primary demo path. Manifests under `k8s/` are for self-hosted clusters.
+Compose is the primary local path; Render+Neon is the hosted path. Manifests under `k8s/` are for self-hosted clusters.
 
 ```bash
-# Optional: public API URL baked into the web image
 export API_PUBLIC_URL=http://<node-ip>:30800
 bash k8s/deploy.sh
 
@@ -159,27 +213,14 @@ kubectl apply -k k8s/
 kubectl -n ollive port-forward svc/web 8080:80
 ```
 
-Update `k8s/secret.yaml` with real API keys before applying to a shared cluster. Ingress is optional (`k8s/ingress.yaml`).
+Update `k8s/secret.yaml` with real API keys before applying to a shared cluster.
 
-## Demo
+## Demo checklist
 
-1. Start with `docker compose up --build`
-2. Open http://localhost:3000
-3. Send a few chat messages (include a sample address like `user@example.com` to see redaction in dashboards)
-4. Open **Dashboards** for latency / throughput / errors
-5. Use **Cancel** mid-stream, then **Resume** to continue the same conversation
-
-Optional: record a Loom of the above flow for submission.
-
-### Smoke tests
-
-With the stack running:
-
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/smoke_test.ps1
-```
-
-Covers health, providers, multi-turn chat, streaming SSE, cancel/resume, every Groq model, PII redaction, metrics, and ingest auth.
+1. Open the live URL (or local http://localhost:3000)
+2. Send a few chat messages (include `user@example.com` to see PII redaction in dashboards)
+3. Open **Dashboards** for latency / throughput / errors
+4. Use **Stop** mid-stream, then **Resume** to continue the same conversation
 
 ## What we’d improve with more time
 
@@ -190,6 +231,7 @@ Covers health, providers, multi-turn chat, streaming SSE, cancel/resume, every G
 - Stronger PII (NER-based) + field-level encryption
 - Load tests + SLO burn-rate alerts
 - Helm chart + Terraform for cloud k8s
+- Split UI / API / worker into separate scaled services in production
 
 ## License
 
