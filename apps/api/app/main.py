@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .db import init_db
@@ -55,3 +59,27 @@ app.include_router(metrics.router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+# Serve built web UI from the same service (production single-URL deploy).
+_static_dir = Path(os.getenv("STATIC_DIR", "/app/static"))
+if _static_dir.is_dir() and (_static_dir / "index.html").exists():
+    assets = _static_dir / "assets"
+    if assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+    @app.get("/")
+    async def spa_index():
+        return FileResponse(_static_dir / "index.html")
+
+    @app.get("/{full_path:path}")
+    async def spa_fallback(full_path: str):
+        # Never shadow API routes (registered above); this only handles UI paths.
+        if full_path.startswith("v1/") or full_path in {"health", "docs", "openapi.json", "redoc"}:
+            from fastapi import HTTPException
+
+            raise HTTPException(status_code=404, detail="Not found")
+        candidate = _static_dir / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_static_dir / "index.html")

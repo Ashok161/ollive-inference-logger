@@ -1,3 +1,13 @@
+# --- frontend build (same-origin API calls) ---
+FROM node:20-alpine AS web
+WORKDIR /web
+COPY apps/web/package.json apps/web/package-lock.json ./
+RUN npm ci
+COPY apps/web ./
+ENV VITE_API_URL=
+RUN npm run build
+
+# --- api + worker + redis + static UI ---
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -19,12 +29,14 @@ RUN pip install --no-cache-dir -e /packages/inference-sdk \
 COPY apps/api /app
 COPY apps/worker/worker.py /app/worker.py
 COPY apps/api/start.sh /app/start.sh
+COPY --from=web /web/dist /app/static
 RUN sed -i 's/\r$//' /app/start.sh && chmod +x /app/start.sh
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
 ENV EMBED_WORKER=true
 ENV EMBED_REDIS=true
+ENV STATIC_DIR=/app/static
 EXPOSE 8000
 
 CMD ["/app/start.sh"]
